@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # CORS Settings
     cors_origins: List[str] = ["*"]
     
+    # Database Configuration
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/santas_draw"
+    database_echo: bool = False
+    database_pool_size: int = 10
+    database_max_overflow: int = 20
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

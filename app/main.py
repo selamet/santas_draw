@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import time
 from app.config import settings
+from app.models import init_db
 
 # API versioning from settings
 API_VERSION = settings.api_version
@@ -24,6 +25,14 @@ async def lifespan(app: FastAPI):
     print(f"📌 API Version: {API_VERSION}")
     print(f"📌 API Prefix: {API_PREFIX}")
     print(f"🔧 Debug Mode: {settings.debug}")
+    print(f"🗄️  Database: {settings.database_url.split('@')[-1] if '@' in settings.database_url else 'Not configured'}")
+    
+    # Initialize database
+    try:
+        init_db()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Database initialization failed: {e}")
     
     yield
     
@@ -72,18 +81,27 @@ async def health_check():
     """
     Health check endpoint - Checks application status
     """
+    # Check database connection
+    db_status = "connected"
+    try:
+        from app.models.database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"disconnected: {str(e)}"
+    
     return {
         "status": "healthy",
         "timestamp": time.time(),
         "uptime": "running",
         "api_version": API_VERSION,
         "service": "santas-draw-api",
-        "debug": settings.debug
+        "debug": settings.debug,
+        "database": db_status
     }
 
 
-# Routers for API versioning will be added here
-# Example: app.include_router(users.router, prefix=f"{API_PREFIX}/users", tags=["Users"])
 
 if __name__ == "__main__":
     import uvicorn
