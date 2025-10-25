@@ -60,8 +60,10 @@ def verify_token(token: str) -> Optional[str]:
         Email from token or None if invalid
     """
     payload = decode_access_token(token)
+    
     if payload is None:
         return None
     
     email: str = payload.get("sub")
+
     return email

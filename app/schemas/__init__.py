@@ -8,6 +8,7 @@ from app.schemas.user import (
     UserLogin,
     UserResponse,
     Token,
+    TokenResponse,
     TokenData
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "UserLogin",
     "UserResponse",
     "Token",
+    "TokenResponse",
     "TokenData"
 ]
