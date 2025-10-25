@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     database_pool_size: int = 10
     database_max_overflow: int = 20
     
+    # JWT Configuration
+    secret_key: str = "your-secret-key-change-this-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    
     @property
     def database_url(self) -> str:
         """Generate database URL from PostgreSQL connection details"""

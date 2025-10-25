@@ -23,6 +23,9 @@ pydantic_core==2.41.4
 Pygments==2.19.2
 python-dotenv==1.1.1
 python-multipart==0.0.20
+passlib==1.7.4
+bcrypt==4.2.0
+python-jose==3.3.0
 PyYAML==6.0.3
 rich==14.2.0
 rich-toolkit==0.15.1
