@@ -27,11 +27,22 @@ class Settings(BaseSettings):
     # CORS Settings
     cors_origins: List[str] = ["*"]
     
+    # PostgreSQL Connection Details
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_user: str = "postgres"
+    postgres_password: str = "postgres"
+    postgres_db: str = "santas_draw"
+    
     # Database Configuration
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/santas_draw"
     database_echo: bool = False
     database_pool_size: int = 10
     database_max_overflow: int = 20
+    
+    @property
+    def database_url(self) -> str:
+        """Generate database URL from PostgreSQL connection details"""
+        return f"postgresql://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
     
     class Config:
         env_file = ".env"

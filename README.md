@@ -21,44 +21,52 @@ FastAPI-based RESTful API project for Secret Santa draw management.
 - **PostgreSQL** - Database
 - **Alembic** 1.14.0 - Database migrations
 
-## Installation
+## Quick Start
 
 ```bash
-# Activate virtual environment
-source venv/bin/activate
+# Clone the repository
+git clone <repository-url>
+cd santas_draw
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy environment configuration
+# Copy environment file
 cp .env.example .env
 
-# Edit .env file with your database settings
-# Update DATABASE_URL if needed
+# Start all services
+docker-compose up -d
 
-# Run database migrations (once PostgreSQL is running)
-alembic upgrade head
-
-# Start server
-uvicorn app.main:app --reload
+# That's it! Application is running at http://localhost:8000
+# API Docs: http://localhost:8000/docs
 ```
 
-## Database Setup
+## Prerequisites
 
-The application uses PostgreSQL. Make sure PostgreSQL is installed and running:
+- Docker & Docker Compose
+
+No Python, PostgreSQL, or other dependencies needed!
+
+## Available Commands
 
 ```bash
-# Create database
-createdb santas_draw
+# Start all services
+docker-compose up -d
 
-# Or use psql
-psql -U postgres
-CREATE DATABASE santas_draw;
-```
+# Stop all services
+docker-compose down
 
-Update `.env` file with your database credentials:
-```env
-DATABASE_URL=postgresql://username:password@localhost:5432/santas_draw
+# View logs
+docker-compose logs -f
+
+# View application logs only
+docker-compose logs -f app
+
+# View database logs only
+docker-compose logs -f postgres
+
+# Rebuild and start
+docker-compose up -d --build
+
+# Stop and remove volumes
+docker-compose down -v
 ```
 
 ## Configuration
