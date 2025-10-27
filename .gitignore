@@ -388,3 +388,6 @@ docker-compose.override.yml
 # PostgreSQL
 *.sql
 *.dump
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
