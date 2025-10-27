@@ -1,5 +1,6 @@
 import os
 from celery import Celery
+from celery.schedules import crontab
 
 ENV = os.getenv('ENV', 'development')
 
@@ -39,6 +40,14 @@ app.conf.update(
     # Monitoring
     worker_send_task_events=True,
     task_send_sent_event=True,
+
+    # Beat schedule (periodic tasks)
+    beat_schedule={
+        'execute_scheduled_draw': {
+            'task': 'execute_scheduled_draw_task',
+            'schedule': crontab(minute=0) # Every hour at minute 0
+        },
+    },
 )
 
 # Explicitly import tasks to register them

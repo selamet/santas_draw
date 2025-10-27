@@ -9,7 +9,8 @@ from app.schemas.user import (
     UserResponse,
     Token,
     TokenResponse,
-    TokenData
+    TokenData,
+    TaskResponse
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "UserResponse",
     "Token",
     "TokenResponse",
-    "TokenData"
+    "TokenData",
+    "TaskResponse"
 ]
