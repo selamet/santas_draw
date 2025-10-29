@@ -5,8 +5,10 @@ Authentication endpoints
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.models import get_db, User
-from app.schemas import UserCreate, UserLogin, TokenResponse
+from app.schemas import UserCreate, UserLogin, TokenResponse, TokenData, TaskResponse
 from app.core.security import create_access_token
+from app.tasks.draw import get_user_info
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
@@ -79,4 +81,25 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         "access_token": access_token,
         "token_type": "bearer",
         "user": user
+    }
+
+
+@router.get("/get-user-async", response_model=TaskResponse)
+async def get_user_async(user: User = Depends(get_current_user)):
+    """
+    Trigger a Celery task to fetch user information from database
+    
+    Args:
+        user: Current authenticated user
+        
+    Returns:
+        Celery task ID and status
+    """
+    # Trigger Celery task
+    celery_task = get_user_info.delay(user.email)
+    
+    return {
+        "task_id": celery_task.id,
+        "status": "pending",
+        "message": f"Task triggered to fetch user info for {user.email}"
     }

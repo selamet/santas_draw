@@ -49,3 +49,10 @@ class TokenResponse(BaseModel):
 class TokenData(BaseModel):
     """Schema for token data"""
     email: Optional[str] = None
+
+
+class TaskResponse(BaseModel):
+    """Schema for Celery task response"""
+    task_id: str
+    status: str
+    message: str
