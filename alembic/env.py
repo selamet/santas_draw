@@ -18,7 +18,7 @@ from app.models.database import Base
 
 # Import all models here to ensure they are registered with Base
 from app.models.user import User
-# from app.models.draw import Draw
+from app.models.draw import Draw
 # from app.models.participant import Participant
 
 # this is the Alembic Config object
