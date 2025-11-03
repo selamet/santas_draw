@@ -19,7 +19,7 @@ class DrawStatus(str, Enum):
 
 
 class Draw(BaseModel):
-    """Draw model representing a gift exchange event."""
+    """Draw a model representing a gift exchange event."""
 
     __tablename__ = "draws"
 
@@ -33,11 +33,37 @@ class Draw(BaseModel):
     require_phone = Column(Boolean(False), default=False)
     share_link = Column(String(255), unique=True, nullable=True, index=True)
 
+    participants = relationship("Participant", back_populates="draw", cascade="all, delete-orphan")
+
     @property
     def is_active(self) -> bool:
-        return self.status == DrawStatus.ACTIVE.value and (
-                self.draw_date and self.draw_date > datetime.datetime.now(datetime.UTC)
-        )
+        if not self.draw_date:
+            return False
+        try:
+            from datetime import timezone
+            now = datetime.datetime.now(timezone.utc)
+        except (AttributeError, ImportError):
+            now = datetime.datetime.utcnow()
+        return self.status == DrawStatus.ACTIVE.value and self.draw_date > now
 
     def __repr__(self):
-        return f"<Draw(id={self.id}, name={self.name}, organizer_id={self.organizer_id})>"
+        return f"<Draw(id={self.id}, creator_id={self.creator_id}, status={self.status})>"
+
+
+class Participant(BaseModel):
+    """Participant model representing a person in a draw."""
+
+    __tablename__ = "participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    draw_id = Column(Integer, ForeignKey("draws.id", ondelete="CASCADE"), nullable=False, index=True)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    email = Column(String(255), nullable=False)
+    address = Column(String(500), nullable=True)
+    phone = Column(String(50), nullable=True)
+
+    draw = relationship("Draw", back_populates="participants")
+
+    def __repr__(self):
+        return f"<Participant(id={self.id}, name={self.first_name} {self.last_name}, draw_id={self.draw_id})>"
