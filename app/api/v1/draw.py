@@ -1,11 +1,9 @@
-import secrets
 import logging
 from typing import Optional
 from app.models import get_db, User
-from datetime import datetime, timezone
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from app.api.deps import get_current_user_optional
-from app.schemas.draw import DrawCreate, DrawResponse, ManualDrawCreate, ManualDrawResponse
+from app.schemas.draw import ManualDrawCreate, ManualDrawResponse
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.draw import Draw, DrawStatus, DrawType, Participant
 
@@ -45,7 +43,7 @@ async def create_manual_draw(
         )
         db.add(new_draw)
         db.flush()
-        
+
         participants_data = [
             Participant(
                 draw_id=new_draw.id,
@@ -59,18 +57,18 @@ async def create_manual_draw(
         ]
         db.bulk_save_objects(participants_data)
         db.commit()
-        
+
         # from app.tasks.draw import process_manual_draw_task
         # process_manual_draw_task.delay(new_draw.id)
-        
+
         logger.info(f"Manual draw created: draw_id={new_draw.id}, creator_id={new_draw.creator_id}")
-        
+
         return ManualDrawResponse(
             success=True,
             message="Draw created successfully and is being processed.",
             draw_id=new_draw.id
         )
-        
+
     except Exception as e:
         db.rollback()
         logger.error(f"Error while creating draw {str(e)}")
