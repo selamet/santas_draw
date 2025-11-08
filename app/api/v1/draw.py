@@ -37,7 +37,7 @@ async def create_manual_draw(
     try:
         new_draw = Draw(
             creator_id=current_user.id if current_user else None,
-            draw_type=DrawType.ANONYMOUS.value,
+            draw_type=DrawType.MANUAL.value,
             status=DrawStatus.IN_PROGRESS.value,
             require_address=draw_data.address_required,
             require_phone=draw_data.phone_number_required,
@@ -60,8 +60,8 @@ async def create_manual_draw(
         db.bulk_save_objects(participants_data)
         db.commit()
         
-        from app.tasks.draw import process_manual_draw_task
-        process_manual_draw_task.delay(new_draw.id)
+        # from app.tasks.draw import process_manual_draw_task
+        # process_manual_draw_task.delay(new_draw.id)
         
         logger.info(f"Manual draw created: draw_id={new_draw.id}, creator_id={new_draw.creator_id}")
         
