@@ -31,7 +31,7 @@ class Draw(BaseModel):
     draw_date = Column(DateTime(timezone=True), nullable=True)
     require_address = Column(Boolean(False), default=False)
     require_phone = Column(Boolean(False), default=False)
-    share_link = Column(String(255), unique=True, nullable=True, index=True)
+    invite_code = Column(String(255), unique=True, nullable=True, index=True)
 
     participants = relationship("Participant", back_populates="draw", cascade="all, delete-orphan")
 

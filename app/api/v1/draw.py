@@ -2,10 +2,15 @@ import logging
 from typing import Optional
 from app.models import get_db, User
 from sqlalchemy.orm import Session
-from app.api.deps import get_current_user_optional
-from app.schemas.draw import ManualDrawCreate, ManualDrawResponse
+from app.api.deps import get_current_user_optional, get_current_user
+from app.schemas.draw import (
+    ManualDrawCreate, ManualDrawResponse,
+    DynamicDrawCreate, DynamicDrawResponse,
+    DrawPublicInfo, ParticipantJoinRequest
+)
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.draw import Draw, DrawStatus, DrawType, Participant
+from app.utils.link_generator import generate_invite_code
 
 logger = logging.getLogger(__name__)
 
@@ -75,4 +80,225 @@ async def create_manual_draw(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while creating draw: {str(e)}"
+        )
+
+
+@router.post("/draws/dynamic", response_model=DynamicDrawResponse, status_code=status.HTTP_201_CREATED)
+async def create_dynamic_draw(
+    draw_data: DynamicDrawCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a dynamic draw with a shareable invite code.
+    
+    - **Authentication Required:** Only authenticated users can create dynamic draws
+    - The organizer is the first (and only) participant in the initial list
+    - A unique invite_code is generated for others to join
+    - Draw can be scheduled for a specific time (exact hour only) or executed manually later
+    
+    Parameters:
+    - draw_data: DynamicDrawCreate - Draw settings and organizer information
+    - db: Session - Database session dependency
+    - current_user: User - Currently authenticated user (required)
+    
+    Returns:
+    - DynamicDrawResponse: Contains draw ID and invite code
+    
+    Raises:
+    - HTTPException: If there's an error during draw creation
+    """
+    try:
+        invite_code = generate_invite_code(db)
+        
+        new_draw = Draw(
+            creator_id=current_user.id,
+            draw_type=DrawType.DYNAMIC.value,
+            status=DrawStatus.ACTIVE.value,
+            require_address=draw_data.address_required,
+            require_phone=draw_data.phone_number_required,
+            draw_date=draw_data.draw_date,
+            invite_code=invite_code
+        )
+        db.add(new_draw)
+        db.flush()
+        
+        organizer = draw_data.participants[0]
+        organizer_participant = Participant(
+            draw_id=new_draw.id,
+            first_name=organizer.first_name,
+            last_name=organizer.last_name,
+            email=organizer.email,
+            address=organizer.address,
+            phone=organizer.phone
+        )
+        db.add(organizer_participant)
+        db.commit()
+        
+        logger.info(
+            f"Dynamic draw created: draw_id={new_draw.id}, "
+            f"creator_id={current_user.id}, invite_code={invite_code}"
+        )
+        
+        return DynamicDrawResponse(
+            success=True,
+            message="Draw created successfully. Share the invite code with participants.",
+            draw_id=new_draw.id,
+            invite_code=invite_code
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error while creating dynamic draw: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while creating draw: {str(e)}"
+        )
+
+
+@router.get("/draws/join/{invite_code}", response_model=DrawPublicInfo)
+async def get_draw_public_info(
+    invite_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get public information about a draw using its invite code.
+    
+    - **No Authentication Required:** This is a public endpoint
+    - Returns basic draw information for participants to view before joining
+    - Does not expose sensitive information (creator details, participant details)
+    
+    Parameters:
+    - invite_code: str - The unique invite code of the draw
+    - db: Session - Database session dependency
+    
+    Returns:
+    - DrawPublicInfo: Public draw information
+    
+    Raises:
+    - HTTPException 404: If draw not found
+    """
+    draw = db.query(Draw).filter(Draw.invite_code == invite_code).first()
+    
+    if not draw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Draw not found"
+        )
+    
+    participant_count = db.query(Participant).filter(
+        Participant.draw_id == draw.id
+    ).count()
+    
+    return DrawPublicInfo(
+        id=draw.id,
+        require_address=draw.require_address,
+        require_phone=draw.require_phone,
+        draw_date=draw.draw_date,
+        status=draw.status,
+        participant_count=participant_count
+    )
+
+
+@router.post("/draws/join/{invite_code}", status_code=status.HTTP_201_CREATED)
+async def join_draw(
+    invite_code: str,
+    participant_data: ParticipantJoinRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Join a draw using its invite code.
+    
+    - **No Authentication Required:** Anyone with the invite code can join
+    - Email uniqueness is enforced (cannot join twice with same email)
+    - Required fields are validated based on draw settings
+    - Participant is immediately added to the draw
+    
+    Parameters:
+    - invite_code: str - The unique invite code of the draw
+    - participant_data: ParticipantJoinRequest - Participant information
+    - db: Session - Database session dependency
+    
+    Returns:
+    - Success message with participant info
+    
+    Raises:
+    - HTTPException 404: If draw not found
+    - HTTPException 400: If draw is not active
+    - HTTPException 409: If email already registered in this draw
+    - HTTPException 400: If required fields are missing
+    """
+    draw = db.query(Draw).filter(Draw.invite_code == invite_code).first()
+    
+    if not draw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Draw not found"
+        )
+    
+    # Check if draw is active
+    if draw.status != DrawStatus.ACTIVE.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Draw is not active. Current status: {draw.status}"
+        )
+    
+    # Check email uniqueness in this draw
+    existing_participant = db.query(Participant).filter(
+        Participant.draw_id == draw.id,
+        Participant.email == participant_data.email
+    ).first()
+    
+    if existing_participant:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is already registered for this draw"
+        )
+    
+    # Validate required fields
+    if draw.require_address:
+        if not participant_data.address or participant_data.address.strip() == "":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Address is required for this draw"
+            )
+    
+    if draw.require_phone:
+        if not participant_data.phone or participant_data.phone.strip() == "":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number is required for this draw"
+            )
+    
+    try:
+        new_participant = Participant(
+            draw_id=draw.id,
+            first_name=participant_data.first_name,
+            last_name=participant_data.last_name,
+            email=participant_data.email,
+            address=participant_data.address,
+            phone=participant_data.phone
+        )
+        db.add(new_participant)
+        db.commit()
+        db.refresh(new_participant)
+        
+        logger.info(
+            f"Participant joined draw: draw_id={draw.id}, "
+            f"participant_id={new_participant.id}, email={participant_data.email}"
+        )
+        
+        return {
+            "success": True,
+            "message": "Successfully joined the draw",
+            "participantId": new_participant.id,
+            "drawId": draw.id
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error while joining draw: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while joining draw: {str(e)}"
         )

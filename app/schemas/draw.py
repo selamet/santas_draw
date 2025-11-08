@@ -131,3 +131,107 @@ class ManualDrawResponse(BaseModel):
     success: bool
     message: str
     draw_id: int = Field(..., alias="drawId")
+
+
+# Dynamic Draw Schemas
+
+class DynamicDrawParticipant(BaseModel):
+    """Schema for dynamic draw participant (organizer) with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    first_name: str = Field(..., min_length=1, max_length=100, alias="firstName")
+    last_name: str = Field(..., min_length=1, max_length=100, alias="lastName")
+    email: EmailStr
+    address: Optional[str] = Field(None, max_length=500)
+    phone: Optional[str] = Field(None, max_length=50)
+
+
+class DynamicDrawCreate(BaseModel):
+    """Schema for creating a dynamic draw with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    address_required: bool = Field(False, alias="addressRequired")
+    phone_number_required: bool = Field(False, alias="phoneNumberRequired")
+    draw_date: Optional[datetime] = Field(None, alias="drawDate")
+    participants: List[DynamicDrawParticipant] = Field(
+        ...,
+        min_length=1,
+        max_length=1,
+        description="List with exactly 1 participant (the organizer)"
+    )
+
+    @field_validator('draw_date')
+    @classmethod
+    def validate_draw_date(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Validate that draw_date is in the future and at exact hour (minutes must be :00)"""
+        if v is not None:
+            from datetime import timezone as tz
+            now = datetime.now(tz.utc)
+            
+            # Ensure timezone aware
+            if v.tzinfo is None:
+                v = v.replace(tzinfo=tz.utc)
+            
+            # Check if in the future
+            if v <= now:
+                raise ValueError("drawDate must be in the future")
+            
+            # Check if minutes are :00
+            if v.minute != 0 or v.second != 0:
+                raise ValueError("drawDate must be at exact hour (e.g., 13:00, not 13:33)")
+        
+        return v
+
+    @model_validator(mode='after')
+    def validate_organizer_required_fields(self):
+        """Validate that organizer has required fields"""
+        organizer = self.participants[0]
+        
+        if self.address_required:
+            if not organizer.address or organizer.address.strip() == "":
+                raise ValueError(
+                    f"address is required when addressRequired is true. "
+                    f"Organizer ({organizer.first_name} {organizer.last_name}) is missing address."
+                )
+        
+        if self.phone_number_required:
+            if not organizer.phone or organizer.phone.strip() == "":
+                raise ValueError(
+                    f"phone is required when phoneNumberRequired is true. "
+                    f"Organizer ({organizer.first_name} {organizer.last_name}) is missing phone."
+                )
+        
+        return self
+
+
+class DynamicDrawResponse(BaseModel):
+    """Schema for dynamic draw response with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    success: bool
+    message: str
+    draw_id: int = Field(..., alias="drawId")
+    invite_code: str = Field(..., alias="inviteCode")
+
+
+class ParticipantJoinRequest(BaseModel):
+    """Schema for joining a draw via share link with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    first_name: str = Field(..., min_length=1, max_length=100, alias="firstName")
+    last_name: str = Field(..., min_length=1, max_length=100, alias="lastName")
+    email: EmailStr
+    address: Optional[str] = Field(None, max_length=500)
+    phone: Optional[str] = Field(None, max_length=50)
+
+
+class DrawPublicInfo(BaseModel):
+    """Schema for public draw information with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    require_address: bool = Field(..., alias="requireAddress")
+    require_phone: bool = Field(..., alias="requirePhone")
+    draw_date: Optional[datetime] = Field(None, alias="drawDate")
+    status: str
+    participant_count: int = Field(..., alias="participantCount")
