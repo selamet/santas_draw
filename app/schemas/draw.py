@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ConfigDict
 
 
 class ParticipantBase(BaseModel):
@@ -76,3 +76,58 @@ class DrawResponse(DrawBase):
 
     class Config:
         from_attributes = True
+
+
+
+class ManualDrawParticipant(BaseModel):
+    """Schema for manual draw participant with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    first_name: str = Field(..., min_length=1, max_length=100, alias="firstName")
+    last_name: str = Field(..., min_length=1, max_length=100, alias="lastName")
+    email: EmailStr
+    address: Optional[str] = Field(None, max_length=500)
+    phone: Optional[str] = Field(None, max_length=50)
+
+
+class ManualDrawCreate(BaseModel):
+    """Schema for creating a manual draw with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    address_required: bool = Field(False, alias="addressRequired")
+    phone_number_required: bool = Field(False, alias="phoneNumberRequired")
+    participants: List[ManualDrawParticipant] = Field(
+        ...,
+        min_length=3,
+        description="List of participants (minimum 3 required)"
+    )
+
+    @model_validator(mode='after')
+    def validate_required_fields(self):
+        """Validate that required fields are present in all participants"""
+        if self.address_required:
+            for idx, participant in enumerate(self.participants):
+                if not participant.address or participant.address.strip() == "":
+                    raise ValueError(
+                        f"address is required for all participants when addressRequired is true. "
+                        f"Participant at index {idx} ({participant.first_name} {participant.last_name}) is missing address."
+                    )
+        
+        if self.phone_number_required:
+            for idx, participant in enumerate(self.participants):
+                if not participant.phone or participant.phone.strip() == "":
+                    raise ValueError(
+                        f"phone is required for all participants when phoneNumberRequired is true. "
+                        f"Participant at index {idx} ({participant.first_name} {participant.last_name}) is missing phone."
+                    )
+        
+        return self
+
+
+class ManualDrawResponse(BaseModel):
+    """Schema for manual draw response with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    success: bool
+    message: str
+    draw_id: int = Field(..., alias="drawId")

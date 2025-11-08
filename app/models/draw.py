@@ -3,7 +3,7 @@ import datetime
 from enum import Enum
 from app.models.base import BaseModel
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, UniqueConstraint
 
 
 class DrawType(str, Enum):
@@ -67,3 +67,25 @@ class Participant(BaseModel):
 
     def __repr__(self):
         return f"<Participant(id={self.id}, name={self.first_name} {self.last_name}, draw_id={self.draw_id})>"
+
+
+class DrawResult(BaseModel):
+    """DrawResult model representing the result of a draw (who gives to whom)."""
+
+    __tablename__ = "draw_results"
+    __table_args__ = (
+        UniqueConstraint('draw_id', 'giver_participant_id', name='uq_draw_giver'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    draw_id = Column(Integer, ForeignKey("draws.id", ondelete="CASCADE"), nullable=False, index=True)
+    giver_participant_id = Column(Integer, ForeignKey("participants.id", ondelete="CASCADE"), nullable=False, index=True)
+    receiver_participant_id = Column(Integer, ForeignKey("participants.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Relationships
+    draw = relationship("Draw", foreign_keys=[draw_id])
+    giver = relationship("Participant", foreign_keys=[giver_participant_id])
+    receiver = relationship("Participant", foreign_keys=[receiver_participant_id])
+
+    def __repr__(self):
+        return f"<DrawResult(id={self.id}, draw_id={self.draw_id}, giver={self.giver_participant_id} -> receiver={self.receiver_participant_id})>"

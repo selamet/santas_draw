@@ -16,31 +16,27 @@ def execute_scheduled_draw_task(self):
     return {"status": "success", "message": "Test task completed"}
 
 
-@app.task(bind=True, name='get_user_info')
-def get_user_info(self, user_email: str):
+@app.task(bind=True, name='process_manual_draw_task')
+def process_manual_draw_task(self, draw_id: int):
     """
-    Fetches user information from database
+    Processes manual draw operation.
+    
+    Args:
+        draw_id: The draw ID
+        
+    Returns:
+        Dict with status and message
+        
+    TODO: Draw algorithm will be implemented here
+    - Fetch draw and participants from database
+    - Apply Secret Santa draw algorithm
+    - Create DrawResult records
+    - Send emails
+    - Update status (IN_PROGRESS → COMPLETED)
     """
-    db: Session = SessionLocal()
-    try:
-        user = db.query(User).filter(User.email == user_email).first()
-        if not user:
-            logger.warning(f"User not found: {user_email}")
-            return {"status": "error", "message": "User not found"}
-        
-        user_data = {
-            "id": user.id,
-            "email": user.email,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "updated_at": user.updated_at.isoformat() if user.updated_at else None
-        }
-        
-        logger.info(f"User data fetched: {user_email}")
-        return {"status": "success", "user": user_data}
-    
-    except Exception as e:
-        logger.error(f"Error fetching user info: {str(e)}")
-        return {"status": "error", "message": str(e)}
-    
-    finally:
-        db.close()
+    logger.info(f'process_manual_draw_task started for draw_id={draw_id}')
+
+    # For now, just a log message
+    # In the future, draw algorithm and email sending will be here
+
+    return {"status": "success", "message": f"Task executed for draw_id={draw_id}"}
