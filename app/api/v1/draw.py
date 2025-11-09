@@ -258,14 +258,14 @@ async def join_draw(
     
     # Validate required fields
     if draw.require_address:
-        if not participant_data.address or participant_data.address.strip() == "":
+        if not participant_data.address or not participant_data.address.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Address is required for this draw"
             )
     
     if draw.require_phone:
-        if not participant_data.phone or participant_data.phone.strip() == "":
+        if not participant_data.phone or not participant_data.phone.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Phone number is required for this draw"

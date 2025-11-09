@@ -33,7 +33,7 @@ class ManualDrawCreate(BaseModel):
         """Validate that required fields are present in all participants"""
         if self.address_required:
             for idx, participant in enumerate(self.participants):
-                if not participant.address or participant.address.strip() == "":
+                if not participant.address or not participant.address.strip():
                     raise ValueError(
                         f"address is required for all participants when addressRequired is true. "
                         f"Participant at index {idx} ({participant.first_name} {participant.last_name}) is missing address."
@@ -41,7 +41,7 @@ class ManualDrawCreate(BaseModel):
         
         if self.phone_number_required:
             for idx, participant in enumerate(self.participants):
-                if not participant.phone or participant.phone.strip() == "":
+                if not participant.phone or not participant.phone.strip():
                     raise ValueError(
                         f"phone is required for all participants when phoneNumberRequired is true. "
                         f"Participant at index {idx} ({participant.first_name} {participant.last_name}) is missing phone."
@@ -118,14 +118,14 @@ class DynamicDrawCreate(BaseModel):
         organizer = self.participants[0]
         
         if self.address_required:
-            if not organizer.address or organizer.address.strip() == "":
+            if not organizer.address or not organizer.address.strip():
                 raise ValueError(
                     f"address is required when addressRequired is true. "
                     f"Organizer ({organizer.first_name} {organizer.last_name}) is missing address."
                 )
         
         if self.phone_number_required:
-            if not organizer.phone or organizer.phone.strip() == "":
+            if not organizer.phone or not organizer.phone.strip():
                 raise ValueError(
                     f"phone is required when phoneNumberRequired is true. "
                     f"Organizer ({organizer.first_name} {organizer.last_name}) is missing phone."
