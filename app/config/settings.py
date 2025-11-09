@@ -4,7 +4,7 @@ Loads environment variables from .env file
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     secret_key: str = "your-secret-key-change-this-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    
+    # Sentry Configuration (Optional - only DSN from .env)
+    sentry_dsn: Optional[str] = None
     
     @property
     def database_url(self) -> str:
