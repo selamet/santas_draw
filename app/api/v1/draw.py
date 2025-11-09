@@ -6,7 +6,8 @@ from app.api.deps import get_current_user_optional, get_current_user
 from app.schemas.draw import (
     ManualDrawCreate, ManualDrawResponse,
     DynamicDrawCreate, DynamicDrawResponse,
-    DrawPublicInfo, ParticipantJoinRequest
+    DrawPublicInfo, ParticipantJoinRequest,
+    DrawDetailResponse, ParticipantDetail, UpdateDrawSchedule
 )
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.draw import Draw, DrawStatus, DrawType, Participant
@@ -302,3 +303,288 @@ async def join_draw(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while joining draw: {str(e)}"
         )
+
+
+# Organizer Draw Management Endpoints
+
+@router.get("/draws/{draw_id}", response_model=DrawDetailResponse)
+async def get_draw_detail(
+    draw_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get draw details with participants list (organizer only).
+    
+    - **Authentication Required:** Only the organizer can access
+    - Returns full draw information including all participants
+    - Organizer can see all participant details
+    
+    Parameters:
+    - draw_id: int - The draw ID
+    - db: Session - Database session dependency
+    - current_user: User - Currently authenticated user
+    
+    Returns:
+    - DrawDetailResponse: Full draw details with participants
+    
+    Raises:
+    - HTTPException 404: If draw not found
+    - HTTPException 403: If user is not the organizer
+    """
+    draw = db.query(Draw).filter(Draw.id == draw_id).first()
+    
+    if not draw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Draw not found"
+        )
+    
+    if draw.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this draw"
+        )
+    
+    participants = db.query(Participant).filter(
+        Participant.draw_id == draw_id
+    ).all()
+    
+    participant_details = [
+        ParticipantDetail(
+            id=p.id,
+            first_name=p.first_name,
+            last_name=p.last_name,
+            email=p.email,
+            address=p.address,
+            phone=p.phone,
+            created_at=p.created_at
+        )
+        for p in participants
+    ]
+    
+    return DrawDetailResponse(
+        id=draw.id,
+        draw_type=draw.draw_type,
+        status=draw.status,
+        invite_code=draw.invite_code,
+        require_address=draw.require_address,
+        require_phone=draw.require_phone,
+        draw_date=draw.draw_date,
+        created_at=draw.created_at,
+        participants=participant_details
+    )
+
+
+@router.delete("/draws/{draw_id}/participants/{participant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_participant(
+    draw_id: int,
+    participant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a participant from a draw (organizer only).
+    
+    - **Authentication Required:** Only the organizer can delete
+    - Cannot delete if draw is completed
+    - Cannot delete the organizer themselves
+    
+    Parameters:
+    - draw_id: int - The draw ID
+    - participant_id: int - The participant ID to delete
+    - db: Session - Database session dependency
+    - current_user: User - Currently authenticated user
+    
+    Raises:
+    - HTTPException 404: If draw or participant not found
+    - HTTPException 403: If user is not the organizer
+    - HTTPException 400: If draw is completed or trying to delete organizer
+    """
+    draw = db.query(Draw).filter(Draw.id == draw_id).first()
+    
+    if not draw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Draw not found"
+        )
+    
+    if draw.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to modify this draw"
+        )
+    
+    if draw.status == DrawStatus.COMPLETED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete participants from a completed draw"
+        )
+    
+    participant = db.query(Participant).filter(
+        Participant.id == participant_id,
+        Participant.draw_id == draw_id
+    ).first()
+    
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Participant not found in this draw"
+        )
+    
+    # Check if this is the organizer (first participant)
+    first_participant = db.query(Participant).filter(
+        Participant.draw_id == draw_id
+    ).order_by(Participant.created_at).first()
+    
+    if participant.id == first_participant.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete the organizer from the draw"
+        )
+    
+    db.delete(participant)
+    db.commit()
+    
+    logger.info(
+        f"Participant deleted: participant_id={participant_id}, "
+        f"draw_id={draw_id}, by_user={current_user.id}"
+    )
+
+
+@router.put("/draws/{draw_id}/schedule")
+async def update_draw_schedule(
+    draw_id: int,
+    schedule_data: UpdateDrawSchedule,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update draw schedule date (organizer only).
+    
+    - **Authentication Required:** Only the organizer can update
+    - Cannot update if draw is completed
+    - Date must be in the future and at exact hour
+    
+    Parameters:
+    - draw_id: int - The draw ID
+    - schedule_data: UpdateDrawSchedule - New schedule data
+    - db: Session - Database session dependency
+    - current_user: User - Currently authenticated user
+    
+    Returns:
+    - Success message with updated date
+    
+    Raises:
+    - HTTPException 404: If draw not found
+    - HTTPException 403: If user is not the organizer
+    - HTTPException 400: If draw is completed
+    """
+    draw = db.query(Draw).filter(Draw.id == draw_id).first()
+    
+    if not draw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Draw not found"
+        )
+    
+    if draw.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to modify this draw"
+        )
+    
+    if draw.status == DrawStatus.COMPLETED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot update schedule of a completed draw"
+        )
+    
+    draw.draw_date = schedule_data.draw_date
+    db.commit()
+    
+    logger.info(
+        f"Draw schedule updated: draw_id={draw_id}, "
+        f"new_date={schedule_data.draw_date}, by_user={current_user.id}"
+    )
+    
+    return {
+        "success": True,
+        "message": "Draw schedule updated successfully",
+        "drawDate": draw.draw_date
+    }
+
+
+@router.post("/draws/{draw_id}/execute")
+async def execute_draw(
+    draw_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually trigger draw execution (organizer only).
+    
+    - **Authentication Required:** Only the organizer can execute
+    - Cannot execute if draw is already completed
+    - Minimum 3 participants required
+    - Triggers the draw process asynchronously
+    
+    Parameters:
+    - draw_id: int - The draw ID
+    - db: Session - Database session dependency
+    - current_user: User - Currently authenticated user
+    
+    Returns:
+    - Success message
+    
+    Raises:
+    - HTTPException 404: If draw not found
+    - HTTPException 403: If user is not the organizer
+    - HTTPException 400: If draw is completed or insufficient participants
+    """
+    draw = db.query(Draw).filter(Draw.id == draw_id).first()
+    
+    if not draw:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Draw not found"
+        )
+    
+    if draw.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to execute this draw"
+        )
+    
+    if draw.status == DrawStatus.COMPLETED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Draw is already completed"
+        )
+    
+    participant_count = db.query(Participant).filter(
+        Participant.draw_id == draw_id
+    ).count()
+    
+    if participant_count < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Minimum 3 participants required. Current: {participant_count}"
+        )
+    
+    # Update status to IN_PROGRESS
+    draw.status = DrawStatus.IN_PROGRESS.value
+    db.commit()
+    
+    # Trigger Celery task
+    from app.tasks.draw import process_manual_draw_task
+    process_manual_draw_task.delay(draw_id)
+    
+    logger.info(
+        f"Draw execution triggered: draw_id={draw_id}, by_user={current_user.id}"
+    )
+    
+    return {
+        "success": True,
+        "message": "Draw execution started. Results will be sent via email."
+    }

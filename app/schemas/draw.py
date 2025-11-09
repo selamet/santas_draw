@@ -235,3 +235,59 @@ class DrawPublicInfo(BaseModel):
     draw_date: Optional[datetime] = Field(None, alias="drawDate")
     status: str
     participant_count: int = Field(..., alias="participantCount")
+
+
+# Organizer Draw Management Schemas
+
+class ParticipantDetail(BaseModel):
+    """Schema for participant detail with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    first_name: str = Field(..., alias="firstName")
+    last_name: str = Field(..., alias="lastName")
+    email: EmailStr
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    created_at: datetime = Field(..., alias="createdAt")
+
+
+class DrawDetailResponse(BaseModel):
+    """Schema for draw detail (organizer only) with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    draw_type: str = Field(..., alias="drawType")
+    status: str
+    invite_code: Optional[str] = Field(None, alias="inviteCode")
+    require_address: bool = Field(..., alias="requireAddress")
+    require_phone: bool = Field(..., alias="requirePhone")
+    draw_date: Optional[datetime] = Field(None, alias="drawDate")
+    created_at: datetime = Field(..., alias="createdAt")
+    participants: List[ParticipantDetail]
+
+
+class UpdateDrawSchedule(BaseModel):
+    """Schema for updating draw schedule with camelCase support"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    draw_date: Optional[datetime] = Field(None, alias="drawDate")
+
+    @field_validator('draw_date')
+    @classmethod
+    def validate_draw_date(cls, v: Optional[datetime]) -> Optional[datetime]:
+        """Validate that draw_date is in the future and at exact hour"""
+        if v is not None:
+            from datetime import timezone as tz
+            now = datetime.now(tz.utc)
+            
+            if v.tzinfo is None:
+                v = v.replace(tzinfo=tz.utc)
+            
+            if v <= now:
+                raise ValueError("drawDate must be in the future")
+            
+            if v.minute != 0 or v.second != 0:
+                raise ValueError("drawDate must be at exact hour (e.g., 13:00, not 13:33)")
+        
+        return v
