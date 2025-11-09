@@ -47,23 +47,3 @@ def decode_access_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
-
-
-def verify_token(token: str) -> Optional[str]:
-    """
-    Verify token and return email from payload
-    
-    Args:
-        token: JWT token to verify
-        
-    Returns:
-        Email from token or None if invalid
-    """
-    payload = decode_access_token(token)
-    
-    if payload is None:
-        return None
-    
-    email: str = payload.get("sub")
-
-    return email
