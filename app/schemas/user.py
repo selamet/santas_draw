@@ -2,7 +2,7 @@
 User schemas for request/response validation
 """
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from datetime import datetime
 
 
@@ -20,13 +20,12 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     """Schema for user response"""
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     email: EmailStr
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class TokenResponse(BaseModel):
