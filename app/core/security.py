@@ -4,7 +4,8 @@ Security utilities for JWT authentication
 
 from datetime import datetime, timedelta
 from typing import Optional
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from app.config import settings
 
 
@@ -47,5 +48,5 @@ def decode_access_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         return payload
-    except JWTError:
+    except InvalidTokenError:
         return None
