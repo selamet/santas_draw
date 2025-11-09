@@ -176,6 +176,10 @@ class DynamicDrawCreate(BaseModel):
             if v <= now:
                 raise ValueError("drawDate must be in the future")
             
+            # Check if in the same year
+            if v.year != now.year:
+                raise ValueError(f"drawDate must be in the current year ({now.year})")
+            
             # Check if minutes are :00
             if v.minute != 0 or v.second != 0:
                 raise ValueError("drawDate must be at exact hour (e.g., 13:00, not 13:33)")
@@ -286,6 +290,10 @@ class UpdateDrawSchedule(BaseModel):
             
             if v <= now:
                 raise ValueError("drawDate must be in the future")
+            
+            # Check if in the same year
+            if v.year != now.year:
+                raise ValueError(f"drawDate must be in the current year ({now.year})")
             
             if v.minute != 0 or v.second != 0:
                 raise ValueError("drawDate must be at exact hour (e.g., 13:00, not 13:33)")
