@@ -142,25 +142,21 @@ class DrawService:
                 self.db.add(result)
                 draw_results.append(result)
             
-            self.db.flush()
             logger.info(f"Created {len(draw_results)} DrawResult records")
             
         except IntegrityError as e:
             logger.error(f"Database integrity error: {e}")
-            self.db.rollback()
             raise DrawServiceException(
                 "Failed to create draw results due to database constraint violation"
             ) from e
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
-            self.db.rollback()
             raise DrawServiceException(f"Failed to create draw results: {str(e)}") from e
         
         return draw_results
     
     def _update_draw_status(self, draw: Draw, status: DrawStatus) -> None:
         draw.status = status.value
-        self.db.flush()
         logger.info(f"Draw status updated: draw_id={draw.id}, status={status.value}")
     
     def get_draw_results(self, draw_id: int) -> List[DrawResult]:

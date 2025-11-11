@@ -43,6 +43,7 @@ class TestDrawService:
         
         service = DrawService(test_db)
         results = service.execute_draw(draw.id)
+        test_db.commit()
         
         assert len(results) == 3
         
@@ -236,6 +237,7 @@ class TestDrawService:
         
         service = DrawService(test_db)
         service.execute_draw(draw.id)
+        test_db.commit()
         
         results = service.get_draw_results(draw.id)
         assert len(results) == 5
@@ -267,6 +269,7 @@ class TestDrawService:
         
         service = DrawService(test_db)
         service.execute_draw(draw.id)
+        test_db.commit()
         
         first_participant = participants[0]
         match = service.get_participant_match(draw.id, first_participant.id)
@@ -350,8 +353,8 @@ class TestDrawServiceEdgeCases:
         with pytest.raises(InsufficientParticipantsError):
             service.execute_draw(draw.id)
     
-    def test_database_rollback_on_error(self, test_db: Session):
-        """Test database rollback on error"""
+    def test_transaction_management_by_caller(self, test_db: Session):
+        """Test that transaction management is handled by caller, not service"""
         draw = Draw(
             status=DrawStatus.ACTIVE.value,
             draw_type=DrawType.MANUAL.value
@@ -359,7 +362,6 @@ class TestDrawServiceEdgeCases:
         test_db.add(draw)
         test_db.flush()
         
-        participants = []
         for i in range(3):
             participant = Participant(
                 draw_id=draw.id,
@@ -368,25 +370,26 @@ class TestDrawServiceEdgeCases:
                 email=f"user{i}@test.com"
             )
             test_db.add(participant)
-            participants.append(participant)
-        test_db.commit()
-        
-        manual_result = DrawResult(
-            draw_id=draw.id,
-            giver_participant_id=participants[0].id,
-            receiver_participant_id=participants[1].id
-        )
-        test_db.add(manual_result)
         test_db.commit()
         
         service = DrawService(test_db)
-        with pytest.raises(DrawServiceException):
-            service.execute_draw(draw.id)
+        results = service.execute_draw(draw.id)
         
-        existing_results = test_db.query(DrawResult).filter(
+        # Before commit, results exist in memory but not persisted
+        assert len(results) == 3
+        
+        # Rollback should discard changes
+        test_db.rollback()
+        
+        # After rollback, no results should be in database
+        persisted_results = test_db.query(DrawResult).filter(
             DrawResult.draw_id == draw.id
         ).all()
-        assert len(existing_results) == 1
+        assert len(persisted_results) == 0
+        
+        # Draw status should also be rolled back
+        test_db.refresh(draw)
+        assert draw.status == DrawStatus.ACTIVE.value
     
     def test_concurrent_draw_prevention(self, test_db: Session):
         """Test prevention of concurrent draw execution"""
@@ -497,6 +500,7 @@ class TestDrawServiceIntegration:
         
         service = DrawService(test_db)
         results = service.execute_draw(draw.id)
+        test_db.commit()
         
         assert len(results) == 4
         for first, last, email, _, _ in participant_data:
@@ -536,6 +540,7 @@ class TestDrawServiceIntegration:
         
         service = DrawService(test_db)
         results = service.execute_draw(draw.id)
+        test_db.commit()
         
         assert len(results) == 5
         for result in results:
