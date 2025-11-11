@@ -32,6 +32,8 @@ class DrawService:
     - Each participant receives from exactly one person
     """
     
+    MAX_DERANGEMENT_ATTEMPTS = 100
+    
     def __init__(self, db: Session):
         self.db = db
         
@@ -114,8 +116,7 @@ class DrawService:
         if n == 2:
             return [items[1], items[0]]
         
-        max_attempts = 100
-        for _ in range(max_attempts):
+        for _ in range(self.MAX_DERANGEMENT_ATTEMPTS):
             shuffled = items.copy()
             random.shuffle(shuffled)
             
