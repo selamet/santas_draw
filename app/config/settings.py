@@ -4,7 +4,8 @@ Loads environment variables from .env file
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import ConfigDict
+from typing import List, Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -13,6 +14,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
+    model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
     
     # Application Settings
     app_name: str = "Santa's Draw API"
@@ -44,15 +46,13 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
+    # Sentry Configuration (Optional - only DSN from .env)
+    sentry_dsn: Optional[str] = None
+    
     @property
     def database_url(self) -> str:
         """Generate database URL from PostgreSQL connection details"""
         return f"postgresql://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = "ignore"
 
 
 # Create settings instance

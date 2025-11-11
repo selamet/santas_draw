@@ -7,8 +7,36 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import time
+import logging
 from app.config import settings
 from app.models import init_db
+
+logger = logging.getLogger(__name__)
+
+# Initialize Sentry (Optional)
+if settings.sentry_dsn:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            traces_sample_rate=1.0,
+            integrations=[
+                StarletteIntegration(transaction_style="url"),
+                FastApiIntegration(transaction_style="url"),
+                CeleryIntegration(),
+                SqlalchemyIntegration(),
+            ],
+        )
+        logger.info("✅ Sentry initialized successfully")
+    except Exception as e:
+        logger.warning(f"⚠️  Sentry initialization failed: {e}")
+else:
+    logger.info("ℹ️  Sentry not configured (SENTRY_DSN not set)")
 
 # API versioning from settings
 API_VERSION = settings.api_version

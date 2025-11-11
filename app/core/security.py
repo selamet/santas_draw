@@ -4,7 +4,8 @@ Security utilities for JWT authentication
 
 from datetime import datetime, timedelta
 from typing import Optional
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from app.config import settings
 
 
@@ -19,12 +20,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     Returns:
         Encoded JWT token
     """
+    from datetime import timezone
+    
     to_encode = data.copy()
     
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
@@ -45,25 +48,5 @@ def decode_access_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         return payload
-    except JWTError:
+    except InvalidTokenError:
         return None
-
-
-def verify_token(token: str) -> Optional[str]:
-    """
-    Verify token and return email from payload
-    
-    Args:
-        token: JWT token to verify
-        
-    Returns:
-        Email from token or None if invalid
-    """
-    payload = decode_access_token(token)
-    
-    if payload is None:
-        return None
-    
-    email: str = payload.get("sub")
-
-    return email
