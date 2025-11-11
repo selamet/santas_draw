@@ -36,7 +36,7 @@ class TestDrawService:
                 last_name="Test",
                 email=f"person{i}@test.com"
             )
-            for i in range(1, 4)  # 3 katılımcı
+            for i in range(1, 4)  # 3 participants
         ]
         test_db.bulk_save_objects(participants)
         test_db.commit()
