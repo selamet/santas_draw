@@ -49,6 +49,15 @@ class Settings(BaseSettings):
     # Sentry Configuration (Optional - only DSN from .env)
     sentry_dsn: Optional[str] = None
     
+    # SendPulse Email Configuration
+    sendpulse_api_id: Optional[str] = None
+    sendpulse_api_secret: Optional[str] = None
+    sendpulse_from_email: Optional[str] = None
+    sendpulse_from_name: str = "Santa's Draw"
+    sendpulse_template_id: Optional[str] = None
+    sendpulse_token_url: str = "https://api.sendpulse.com/oauth/access_token"
+    sendpulse_email_url: str = "https://api.sendpulse.com/smtp/emails"
+    
     @property
     def database_url(self) -> str:
         """Generate database URL from PostgreSQL connection details"""
